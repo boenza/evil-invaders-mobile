@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <!-- Skyggeeffekt -->
+  <path d="M20,35 C18,33 3,20 3,10 C3,5 7,3 10,3 C15,3 18,7 20,10 C22,7 25,3 30,3 C33,3 37,5 37,10 C37,20 22,33 20,35 Z" 
+        fill="#ff6b81" opacity="0.3" transform="translate(1, 1)"/>
+  
+  <!-- Hovedhjerte -->
+  <path d="M20,35 C18,33 3,20 3,10 C3,5 7,3 10,3 C15,3 18,7 20,10 C22,7 25,3 30,3 C33,3 37,5 37,10 C37,20 22,33 20,35 Z" 
+        fill="#ff3e61"/>
+  
+  <!-- Glanseffekt -->
+  <path d="M10,5 C8,5 5,7 5,10 C5,15 10,20 15,25 C17,22 20,18 25,15" 
+        fill="none" stroke="#ff8fa3" stroke-width="2" opacity="0.7"/>
+        
+  <!-- Pulsering -->
+  <animate attributeName="opacity" values="0.9;1;0.9" dur="2s" repeatCount="indefinite" />
+</svg>
