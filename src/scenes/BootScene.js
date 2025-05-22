@@ -185,3 +185,6 @@ class BootScene extends Phaser.Scene {
       this.game.globals.highscores = [];
     }
   }
+}
+
+export default BootScene;
