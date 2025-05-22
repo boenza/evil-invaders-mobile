@@ -34,25 +34,31 @@ class Projectile extends Phaser.Physics.Arcade.Sprite {
   }
   
   createParticleTrail(scene) {
-    // Opprett partikkelspor for prosjektilet
-    if (scene.textures.exists('particle')) {
-      this.particles = scene.add.particles(0, 0, 'particle', {
-        x: this.x,
-        y: this.type === 'bullet' ? this.y + this.height : this.y - this.height,
+    try {
+      // Lag partikkel-tekstur hvis den ikke finnes
+      if (!scene.textures.exists('particle')) {
+        const graphics = scene.make.graphics();
+        graphics.fillStyle(0xffffff);
+        graphics.fillRect(0, 0, 4, 4);
+        graphics.generateTexture('particle', 4, 4);
+        graphics.destroy();
+      }
+
+      // Opprett partikkelspor for prosjektilet
+      this.particles = scene.add.particles(this.x, this.y, 'particle', {
         lifespan: 300,
         speed: { min: 10, max: 50 },
         scale: { start: 0.1, end: 0 },
         quantity: 1,
         blendMode: 'ADD',
-        emitting: true
+        emitting: true,
+        // Sett partikkelfarger basert på prosjektiltype
+        tint: this.type === 'bullet' ? [0xFFFF66, 0xFFDD00] : [0xFF8800, 0xFF4400]
       });
       
-      // Sett partikkelfarger basert på prosjektiltype
-      if (this.type === 'bullet') {
-        this.particles.setTint(0xFFFF66, 0xFFDD00);
-      } else {
-        this.particles.setTint(0xFF8800, 0xFF4400);
-      }
+    } catch (error) {
+      console.warn("Could not create particle trail:", error);
+      this.particles = null;
     }
   }
   
