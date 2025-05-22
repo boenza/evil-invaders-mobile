@@ -16,8 +16,10 @@ class BootScene extends Phaser.Scene {
     // Laster alle lydfiler
     this.loadAudio();
 
-    // Laster alle fonter (om nødvendig)
-    // this.loadFonts();
+    // Handle loading errors
+    this.load.on('loaderror', (file) => {
+      console.warn(`Failed to load asset: ${file.key} from ${file.url}`);
+    });
   }
 
   create() {
@@ -25,6 +27,9 @@ class BootScene extends Phaser.Scene {
     
     // Sett opp globale funksjoner eller data
     this.initializeGlobals();
+    
+    // Create fallback textures for missing assets
+    this.createFallbackTextures();
     
     // Gå til tittelskjermen
     this.scene.start('TitleScene');
@@ -84,6 +89,8 @@ class BootScene extends Phaser.Scene {
   }
 
   loadImages() {
+    // Load images with error handling - use try/catch or check if files exist
+    
     // Spillerbilder
     this.load.image('player', 'assets/images/player.png');
     this.load.image('playerLvl3', 'assets/images/new_player_ship_lvl3.png');
@@ -125,7 +132,7 @@ class BootScene extends Phaser.Scene {
   }
 
   loadAudio() {
-    // Lydeffekter
+    // Lydeffekter - with error handling
     this.load.audio('shoot', 'assets/sounds/shoot.wav');
     this.load.audio('explosion', 'assets/sounds/explosion.wav');
     this.load.audio('hit', 'assets/sounds/hit.wav');
@@ -137,6 +144,96 @@ class BootScene extends Phaser.Scene {
     this.load.audio('titleMusic', 'assets/sounds/Evil Invaders.mp3');
     for (let i = 1; i <= 10; i++) {
       this.load.audio(`backgroundMusic${i}`, `assets/sounds/background_music${i}.mp3`);
+    }
+  }
+
+  createFallbackTextures() {
+    // Create simple colored rectangles as fallback textures for missing images
+    
+    // Create particle texture if it doesn't exist
+    if (!this.textures.exists('particle')) {
+      const graphics = this.make.graphics();
+      graphics.fillStyle(0xffffff);
+      graphics.fillRect(0, 0, 4, 4);
+      graphics.generateTexture('particle', 4, 4);
+      graphics.destroy();
+    }
+    
+    // Create fallback player texture
+    if (!this.textures.exists('player')) {
+      const graphics = this.make.graphics();
+      graphics.fillStyle(0x00ff00); // Green
+      graphics.fillRect(0, 0, CONSTANTS.PLAYER_WIDTH, CONSTANTS.PLAYER_HEIGHT);
+      graphics.generateTexture('player', CONSTANTS.PLAYER_WIDTH, CONSTANTS.PLAYER_HEIGHT);
+      graphics.destroy();
+    }
+    
+    // Create fallback UFO textures
+    for (let i = 1; i <= 4; i++) {
+      if (!this.textures.exists(`ufo${i}`)) {
+        const graphics = this.make.graphics();
+        const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00]; // Red, Green, Blue, Yellow
+        graphics.fillStyle(colors[i - 1]);
+        graphics.fillRect(0, 0, CONSTANTS.UFO_WIDTH, CONSTANTS.UFO_HEIGHT);
+        graphics.generateTexture(`ufo${i}`, CONSTANTS.UFO_WIDTH, CONSTANTS.UFO_HEIGHT);
+        graphics.destroy();
+      }
+    }
+    
+    // Create fallback boss textures
+    if (!this.textures.exists('bossLvl5')) {
+      const graphics = this.make.graphics();
+      graphics.fillStyle(0xff8800); // Orange
+      graphics.fillRect(0, 0, 100, 80);
+      graphics.generateTexture('bossLvl5', 100, 80);
+      graphics.destroy();
+    }
+    
+    if (!this.textures.exists('bossLvl10')) {
+      const graphics = this.make.graphics();
+      graphics.fillStyle(0xff0088); // Pink
+      graphics.fillRect(0, 0, 150, 120);
+      graphics.generateTexture('bossLvl10', 150, 120);
+      graphics.destroy();
+    }
+    
+    // Create fallback explosion textures
+    for (let i = 1; i <= 5; i++) {
+      if (!this.textures.exists(`explosion${i}`)) {
+        const graphics = this.make.graphics();
+        graphics.fillStyle(0xffaa00); // Orange
+        const size = 20 + i * 5;
+        graphics.fillCircle(size/2, size/2, size/2);
+        graphics.generateTexture(`explosion${i}`, size, size);
+        graphics.destroy();
+      }
+    }
+    
+    // Create fallback diamond texture
+    if (!this.textures.exists('diamond')) {
+      const graphics = this.make.graphics();
+      graphics.fillStyle(0x00ffff); // Cyan
+      graphics.fillRect(0, 0, 30, 30);
+      graphics.generateTexture('diamond', 30, 30);
+      graphics.destroy();
+    }
+    
+    // Create fallback extra life texture
+    if (!this.textures.exists('extralife')) {
+      const graphics = this.make.graphics();
+      graphics.fillStyle(0xff3e61); // Pink heart color
+      graphics.fillCircle(10, 10, 8);
+      graphics.generateTexture('extralife', 20, 20);
+      graphics.destroy();
+    }
+    
+    // Create fallback asteroid texture
+    if (!this.textures.exists('asteroid')) {
+      const graphics = this.make.graphics();
+      graphics.fillStyle(0x666666); // Gray
+      graphics.fillCircle(20, 20, 20);
+      graphics.generateTexture('asteroid', 40, 40);
+      graphics.destroy();
     }
   }
 
@@ -157,7 +254,9 @@ class BootScene extends Phaser.Scene {
       largeUfo2Created: false,
       levelExtraLifeDropped: false,
       levelStartTime: 0,
-      gameState: 'start'
+      gameState: 'start',
+      backgroundMusic: null,
+      sfx: {}
     };
     
     // Prøv å laste highscores fra lokal lagring
@@ -172,12 +271,15 @@ class BootScene extends Phaser.Scene {
       } else {
         // Ingen highscores funnet, la oss lage noen standard verdier
         this.game.globals.highscores = [
-          { name: 'BOENZA', score: 5000, level: 10 },
-          { name: 'MASTER', score: 4000, level: 8 },
-          { name: 'SHOOTER', score: 3000, level: 6 },
-          { name: 'DEFENDER', score: 2000, level: 4 },
-          { name: 'ROOKIE', score: 1000, level: 2 }
+          { name: 'BOENZA', score: 5000, level: 10, date: new Date().toISOString() },
+          { name: 'MASTER', score: 4000, level: 8, date: new Date().toISOString() },
+          { name: 'SHOOTER', score: 3000, level: 6, date: new Date().toISOString() },
+          { name: 'DEFENDER', score: 2000, level: 4, date: new Date().toISOString() },
+          { name: 'ROOKIE', score: 1000, level: 2, date: new Date().toISOString() }
         ];
+        
+        // Save default highscores
+        localStorage.setItem('evilInvadersHighscores', JSON.stringify(this.game.globals.highscores));
       }
     } catch (e) {
       console.error('Error loading highscores:', e);
