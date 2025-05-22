@@ -30,20 +30,27 @@ class ExtraLife extends Phaser.Physics.Arcade.Sprite {
   }
   
   createGlowEffect(scene) {
-    // Opprett et glow-partikkelsystem rundt extra-life
-    if (scene.textures.exists('particle')) {
-      this.particles = scene.add.particles(0, 0, 'particle', {
-        x: this.x,
-        y: this.y,
+    try {
+      // Lag partikkel-tekstur hvis den ikke finnes
+      if (!scene.textures.exists('particle')) {
+        const graphics = scene.make.graphics();
+        graphics.fillStyle(0xffffff);
+        graphics.fillRect(0, 0, 4, 4);
+        graphics.generateTexture('particle', 4, 4);
+        graphics.destroy();
+      }
+
+      this.particles = scene.add.particles(this.x, this.y, 'particle', {
         lifespan: 600,
         speed: { min: 10, max: 30 },
         scale: { start: 0.2, end: 0 },
         quantity: 1,
-        blendMode: 'ADD'
+        blendMode: 'ADD',
+        tint: 0xFF3E61 // Hjertepartikler er rosa
       });
-      
-      // Hjertepartikler er rosa
-      this.particles.setTint(0xFF3E61);
+    } catch (error) {
+      console.warn("Could not create extra life glow:", error);
+      this.particles = null;
     }
   }
   
