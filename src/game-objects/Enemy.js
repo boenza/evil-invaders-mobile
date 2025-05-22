@@ -27,7 +27,11 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.isNewRow = isNewRow;
     this.isLarge = false;
     this.lastLavaDrop = 0;
-    this.lavaProbability = 0.001; // 0.1% sjanse per frame
+    this.lavaProbability = 0.0005; // Redusert sannsynlighet for å unngå spam
+    
+    // Timing kontroll
+    this.lastMoveTime = 0;
+    this.moveInterval = 100; // Minimum ms mellom bevegelser
     
     // Spesielt for nye rader
     if (isNewRow) {
@@ -36,10 +40,25 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
     
     // Start animasjon hvis tilgjengelig
-    this.play(textureKey);
+    if (this.anims && this.anims.play) {
+      this.play(textureKey);
+    }
   }
   
   update(delta, speedBonus = 0) {
+    // Timing kontroll - ikke beveg for ofte
+    const currentTime = this.scene.time.now;
+    if (currentTime - this.lastMoveTime < this.moveInterval) {
+      return; // Skip denne frame hvis det er for tidlig
+    }
+    
+    this.lastMoveTime = currentTime;
+    
+    // Normaliser delta
+    if (delta > 50) {
+      delta = 16.67; // Begrens til 60fps ekvivalent
+    }
+    
     const currentSpeed = this.speed + speedBonus;
     
     // For nye rader som faller nedover
@@ -49,8 +68,8 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
       const targetY = 50 + Math.abs(this.row) * (CONSTANTS.UFO_HEIGHT + 10);
       
       if (this.y < targetY) {
-        // Beveg nedover til målet
-        this.y += 2;
+        // Beveg nedover til målet - KONTROLLERT HASTIGHET
+        this.y += 1; // Fast hastighet uavhengig av delta
       } else {
         // Stopp ved målposisjonen
         this.y = targetY;
@@ -62,24 +81,25 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
       }
     }
     
-    // Vanlig horisontal bevegelse
-    this.x += currentSpeed * this.direction * (delta / 16.66); // Normaliser for 60 FPS
+    // Vanlig horisontal bevegelse - KONTROLLERT HASTIGHET
+    const moveAmount = currentSpeed * this.direction * 0.5; // Redusert hastighet
+    this.x += moveAmount;
     
     // Endre retning og beveg nedover når vi treffer kanten
     const gameWidth = this.scene.cameras.main.width;
     if (this.x + this.width >= gameWidth || this.x <= 0) {
       this.direction *= -1;
       
-      // Beveg nedover - tilpass mengden basert på nivå og type
+      // Beveg nedover - tilpass mengden basert på type
       const verticalMovement = this.isNewRow ? 
-        Math.max(5, this.height / (12 - this.scene.game.globals.level)) : // Nye rader
+        Math.max(2, this.height / (12 - this.scene.game.globals.level)) : // Nye rader
         this.verticalStep; // Originale rader
         
       this.y += verticalMovement;
     }
     
-    // Lava-drypping (kun for vanlige fiender, ikke boss)
-    if (!this.isLarge && Math.random() < (this.lavaProbability * (1 + speedBonus / 3))) {
+    // Lava-drypping (kun for vanlige fiender, ikke boss) - REDUSERT FREKVENS
+    if (!this.isLarge && Math.random() < this.lavaProbability) {
       this.dropLava();
     }
   }
@@ -110,7 +130,7 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
       ease: 'Power1'
     });
     
-    // Små partikler for treffeffekt
+    // Små partikler for treffeffekt (forenklet versjon)
     if (this.scene.textures.exists('particle')) {
       // Partikkeleksplosjon
       const particles = this.scene.add.particles(this.x, this.y, 'particle', {
@@ -140,7 +160,9 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
       
       // Fjern partikkelsystemet etter at partiklene er ferdige
       this.scene.time.delayedCall(500, () => {
-        particles.destroy();
+        if (particles && !particles.destroyed) {
+          particles.destroy();
+        }
       });
     }
   }
@@ -149,7 +171,7 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
     // Sjekk om det er tid for å slippe lava (cooldown)
     const now = this.scene.time.now;
     
-    if (now - this.lastLavaDrop < 1000) {
+    if (now - this.lastLavaDrop < 2000) { // Økt cooldown til 2 sekunder
       return;
     }
     
@@ -163,7 +185,9 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
     );
     
     // Legg til i lavaDrops-gruppen i scenen
-    this.scene.lavaDrops.add(lava);
+    if (this.scene.lavaDrops) {
+      this.scene.lavaDrops.add(lava);
+    }
   }
   
   destroy() {
