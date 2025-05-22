@@ -1,234 +1,186 @@
-class AudioManager {
+class InputManager {
   constructor() {
-    this.sounds = {};
-    this.music = null;
-    this.musicVolume = 0.5;
-    this.soundVolume = 0.5;
-    this.muted = false;
-    this.musicMuted = false;
-    this.soundMuted = false;
+    this.keys = {};
+    this.pointers = {};
+    this.touchControls = {
+      leftZone: null,
+      rightZone: null,
+      fireZone: null,
+      isMovingLeft: false,
+      isMovingRight: false,
+      isFiring: false
+    };
     this.scene = null;
+    this.cursors = null;
+    this.fireButton = null;
   }
   
   init(scene) {
     this.scene = scene;
-    this.loadSettings();
+    this.setupKeyboard();
+    this.setupTouch();
   }
   
-  loadSettings() {
-    // Last innstillinger fra lokal lagring
-    try {
-      const audioSettings = localStorage.getItem('evilInvadersAudio');
+  setupKeyboard() {
+    if (!this.scene || !this.scene.input) return;
+    
+    // Opprett standard cursor keys
+    this.cursors = this.scene.input.keyboard.createCursorKeys();
+    
+    // Legg til space-knapp for skyting
+    this.fireButton = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    
+    // Legg til WASD-kontroller
+    this.keys.W = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+    this.keys.A = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+    this.keys.S = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    this.keys.D = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+    
+    // Escape og pause
+    this.keys.ESC = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    this.keys.P = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+  }
+  
+  setupTouch() {
+    if (!this.scene || !this.isMobileDevice()) return;
+    
+    const width = this.scene.cameras.main.width;
+    const height = this.scene.cameras.main.height;
+    
+    // Opprett touch-soner
+    this.touchControls.leftZone = this.scene.add.zone(0, 0, width / 3, height)
+      .setOrigin(0)
+      .setInteractive();
       
-      if (audioSettings) {
-        const settings = JSON.parse(audioSettings);
-        this.musicVolume = settings.musicVolume !== undefined ? settings.musicVolume : 0.5;
-        this.soundVolume = settings.soundVolume !== undefined ? settings.soundVolume : 0.5;
-        this.muted = settings.muted !== undefined ? settings.muted : false;
-        this.musicMuted = settings.musicMuted !== undefined ? settings.musicMuted : false;
-        this.soundMuted = settings.soundMuted !== undefined ? settings.soundMuted : false;
-      }
-    } catch (error) {
-      console.error("Error loading audio settings:", error);
-      // Bruk standardverdier
+    this.touchControls.rightZone = this.scene.add.zone(width * 2 / 3, 0, width / 3, height)
+      .setOrigin(0)
+      .setInteractive();
+      
+    this.touchControls.fireZone = this.scene.add.zone(width / 3, 0, width / 3, height)
+      .setOrigin(0)
+      .setInteractive();
+    
+    // Left zone events
+    this.touchControls.leftZone.on('pointerdown', () => {
+      this.touchControls.isMovingLeft = true;
+    });
+    
+    this.touchControls.leftZone.on('pointerup', () => {
+      this.touchControls.isMovingLeft = false;
+    });
+    
+    this.touchControls.leftZone.on('pointerout', () => {
+      this.touchControls.isMovingLeft = false;
+    });
+    
+    // Right zone events
+    this.touchControls.rightZone.on('pointerdown', () => {
+      this.touchControls.isMovingRight = true;
+    });
+    
+    this.touchControls.rightZone.on('pointerup', () => {
+      this.touchControls.isMovingRight = false;
+    });
+    
+    this.touchControls.rightZone.on('pointerout', () => {
+      this.touchControls.isMovingRight = false;
+    });
+    
+    // Fire zone events
+    this.touchControls.fireZone.on('pointerdown', () => {
+      this.touchControls.isFiring = true;
+    });
+    
+    this.touchControls.fireZone.on('pointerup', () => {
+      this.touchControls.isFiring = false;
+    });
+    
+    this.touchControls.fireZone.on('pointerout', () => {
+      this.touchControls.isFiring = false;
+    });
+  }
+  
+  // Input-sjekking metoder
+  isLeftPressed() {
+    return (this.cursors && this.cursors.left.isDown) || 
+           (this.keys.A && this.keys.A.isDown) || 
+           this.touchControls.isMovingLeft;
+  }
+  
+  isRightPressed() {
+    return (this.cursors && this.cursors.right.isDown) || 
+           (this.keys.D && this.keys.D.isDown) || 
+           this.touchControls.isMovingRight;
+  }
+  
+  isUpPressed() {
+    return (this.cursors && this.cursors.up.isDown) || 
+           (this.keys.W && this.keys.W.isDown);
+  }
+  
+  isDownPressed() {
+    return (this.cursors && this.cursors.down.isDown) || 
+           (this.keys.S && this.keys.S.isDown);
+  }
+  
+  isFirePressed() {
+    return (this.fireButton && this.fireButton.isDown) || 
+           this.touchControls.isFiring;
+  }
+  
+  isPausePressed() {
+    return (this.keys.ESC && this.keys.ESC.isDown) || 
+           (this.keys.P && this.keys.P.isDown);
+  }
+  
+  // Hjelpemetoder
+  isMobileDevice() {
+    return (
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      navigator.msMaxTouchPoints > 0
+    );
+  }
+  
+  addKeyListener(key, callback, context = null) {
+    if (!this.scene || !this.scene.input) return;
+    
+    const keyObj = this.scene.input.keyboard.addKey(key);
+    keyObj.on('down', callback, context);
+    
+    return keyObj;
+  }
+  
+  removeKeyListener(keyObj) {
+    if (keyObj && keyObj.removeAllListeners) {
+      keyObj.removeAllListeners();
     }
   }
   
-  saveSettings() {
-    // Lagre innstillinger til lokal lagring
-    try {
-      const settings = {
-        musicVolume: this.musicVolume,
-        soundVolume: this.soundVolume,
-        muted: this.muted,
-        musicMuted: this.musicMuted,
-        soundMuted: this.soundMuted
-      };
-      
-      localStorage.setItem('evilInvadersAudio', JSON.stringify(settings));
-    } catch (error) {
-      console.error("Error saving audio settings:", error);
+  destroy() {
+    // Rydd opp ressurser
+    if (this.touchControls.leftZone) {
+      this.touchControls.leftZone.destroy();
     }
-  }
-  
-  addSound(key, config = {}) {
-    if (!this.scene) {
-      console.error("AudioManager not initialized with a scene");
-      return;
+    if (this.touchControls.rightZone) {
+      this.touchControls.rightZone.destroy();
+    }
+    if (this.touchControls.fireZone) {
+      this.touchControls.fireZone.destroy();
     }
     
-    // Standardverdier for lydkonfigurasjon
-    const defaultConfig = {
-      volume: this.soundVolume,
-      loop: false
+    this.keys = {};
+    this.pointers = {};
+    this.touchControls = {
+      leftZone: null,
+      rightZone: null,
+      fireZone: null,
+      isMovingLeft: false,
+      isMovingRight: false,
+      isFiring: false
     };
-    
-    // Opprett lydobjekt
-    const sound = this.scene.sound.add(key, { ...defaultConfig, ...config });
-    
-    // Oppdater volum basert på innstillinger
-    sound.setVolume(this.soundMuted ? 0 : this.soundVolume);
-    
-    // Lagre lyden
-    this.sounds[key] = sound;
-    
-    return sound;
-  }
-  
-  playSound(key, config = {}) {
-    if (this.muted || this.soundMuted) return;
-    
-    // Hvis lyden ikke er lastet ennå, last den
-    if (!this.sounds[key] && this.scene) {
-      this.addSound(key, config);
-    }
-    
-    // Spill lyden hvis den eksisterer
-    if (this.sounds[key]) {
-      this.sounds[key].play(config);
-    }
-  }
-  
-  stopSound(key) {
-    if (this.sounds[key]) {
-      this.sounds[key].stop();
-    }
-  }
-  
-  playMusic(key, fade = false) {
-    if (!this.scene) {
-      console.error("AudioManager not initialized with a scene");
-      return;
-    }
-    
-    // Stopp eventuell eksisterende musikk
-    if (this.music) {
-      if (fade) {
-        this.music.stop();
-      } else {
-        this.music.stop();
-      }
-    }
-    
-    // Opprett nytt musikkobjekt
-    this.music = this.scene.sound.add(key, {
-      volume: this.musicMuted ? 0 : this.musicVolume,
-      loop: true
-    });
-    
-    // Start musikken
-    if (fade) {
-      this.music.play({ volume: 0 });
-      this.scene.tweens.add({
-        targets: this.music,
-        volume: this.musicMuted ? 0 : this.musicVolume,
-        duration: 1000
-      });
-    } else {
-      this.music.play();
-    }
-  }
-  
-  stopMusic(fade = false) {
-    if (!this.music) return;
-    
-    if (fade) {
-      this.scene.tweens.add({
-        targets: this.music,
-        volume: 0,
-        duration: 1000,
-        onComplete: () => {
-          this.music.stop();
-        }
-      });
-    } else {
-      this.music.stop();
-    }
-  }
-  
-  setMusicVolume(volume) {
-    this.musicVolume = volume;
-    
-    if (this.music && !this.musicMuted) {
-      this.music.setVolume(volume);
-    }
-    
-    this.saveSettings();
-  }
-  
-  setSoundVolume(volume) {
-    this.soundVolume = volume;
-    
-    // Oppdater volumet for alle lyder
-    Object.values(this.sounds).forEach(sound => {
-      if (!this.soundMuted) {
-        sound.setVolume(volume);
-      }
-    });
-    
-    this.saveSettings();
-  }
-  
-  toggleMute() {
-    this.muted = !this.muted;
-    
-    if (this.muted) {
-      // Mute all lyd
-      if (this.music) {
-        this.music.setVolume(0);
-      }
-      
-      Object.values(this.sounds).forEach(sound => {
-        sound.setVolume(0);
-      });
-    } else {
-      // Unmute basert på individuelle innstillinger
-      if (this.music && !this.musicMuted) {
-        this.music.setVolume(this.musicVolume);
-      }
-      
-      if (!this.soundMuted) {
-        Object.values(this.sounds).forEach(sound => {
-          sound.setVolume(this.soundVolume);
-        });
-      }
-    }
-    
-    this.saveSettings();
-  }
-  
-  toggleMusicMute() {
-    this.musicMuted = !this.musicMuted;
-    
-    if (this.music) {
-      this.music.setVolume(this.musicMuted ? 0 : this.musicVolume);
-    }
-    
-    this.saveSettings();
-  }
-  
-  toggleSoundMute() {
-    this.soundMuted = !this.soundMuted;
-    
-    Object.values(this.sounds).forEach(sound => {
-      sound.setVolume(this.soundMuted ? 0 : this.soundVolume);
-    });
-    
-    this.saveSettings();
-  }
-  
-  isMuted() {
-    return this.muted;
-  }
-  
-  isMusicMuted() {
-    return this.musicMuted || this.muted;
-  }
-  
-  isSoundMuted() {
-    return this.soundMuted || this.muted;
   }
 }
 
-// Eksportere en singleton-instans
-export default new AudioManager();
+// Eksporter en singleton-instans
+export default new InputManager();
