@@ -59,6 +59,7 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
+    console.log('GameScene create() called');
     this.game.globals.gameState = 'playing';
     
     // Opprett bakgrunn
@@ -99,6 +100,11 @@ class GameScene extends Phaser.Scene {
   }
   
   update(time, delta) {
+    // Normaliser delta til 60 FPS hvis det er for høyt
+    if (delta > 100) {
+      delta = 16.67; // 60 FPS
+    }
+    
     // Sjekk om spillet er i "playing"-tilstand
     if (this.game.globals.gameState !== 'playing') return;
     
@@ -126,6 +132,8 @@ class GameScene extends Phaser.Scene {
    * ------------------------------ */
    
   createBackground() {
+    console.log('Creating background for level', this.level);
+    
     // Velg bakgrunnsbilde basert på nivå
     const bgKey = `background${this.level}`;
     
@@ -140,6 +148,7 @@ class GameScene extends Phaser.Scene {
       );
     } else {
       // Fallback - lag en stjernebakgrunn
+      console.log('Background image not found, using starfield');
       this.createStarfield();
     }
   }
@@ -201,6 +210,8 @@ class GameScene extends Phaser.Scene {
   }
   
   createEnemies() {
+    console.log('Creating enemies for level', this.level);
+    
     // Grunnleggende UFO-rader
     const baseRows = CONSTANTS.UFO_ROWS;
     
@@ -248,13 +259,7 @@ class GameScene extends Phaser.Scene {
       }
     }
     
-    // I level 5 og 10, sjekk om boss skal opprettes
-    if (this.level === CONSTANTS.BOSS_LEVEL_1 && !this.largeUfoCreated) {
-      // Bossnivå 5 - boss vil bli opprettet når det er få fiender igjen
-      // Implementert i updateEnemies-metoden
-    } else if (this.level === CONSTANTS.BOSS_LEVEL_2 && !this.largeUfo2Created) {
-      // Bossnivå 10 - boss vil bli opprettet når det er få fiender igjen
-    }
+    console.log(`Created ${this.enemies.getLength()} enemies`);
   }
   
   createUI() {
@@ -283,18 +288,22 @@ class GameScene extends Phaser.Scene {
     
     this.livesText.setShadow(0, 0, CONSTANTS.COLORS.NEON_GREEN, 10, true, true);
     
-    // Opprett livikoner
+    // Opprett livikoner (bruk fallback hvis extralife ikke finnes)
     this.lifeIcons = [];
     for (let i = 0; i < 5; i++) {
-      if (i < this.lives) {
-        const lifeIcon = this.add.image(95 + i * 25, 85, 'extralife').setScale(0.5);
-        this.lifeIcons.push(lifeIcon);
+      let lifeIcon;
+      if (this.textures.exists('extralife')) {
+        lifeIcon = this.add.image(95 + i * 25, 85, 'extralife').setScale(0.5);
       } else {
-        const lifeIcon = this.add.image(95 + i * 25, 85, 'extralife')
-          .setScale(0.5)
-          .setAlpha(0.3);
-        this.lifeIcons.push(lifeIcon);
+        // Fallback til sirkel
+        lifeIcon = this.add.circle(95 + i * 25, 85, 8, 0xFF3E61);
       }
+      
+      if (i >= this.lives) {
+        lifeIcon.setAlpha(0.3);
+      }
+      
+      this.lifeIcons.push(lifeIcon);
     }
     
     // Vis ekstra liv-indikator hvis mer enn 5
@@ -439,12 +448,18 @@ class GameScene extends Phaser.Scene {
     }
     
     const musicKey = `backgroundMusic${this.level}`;
-    this.game.globals.backgroundMusic = this.sound.add(musicKey, {
-      volume: 0.5,
-      loop: true
-    });
     
-    this.game.globals.backgroundMusic.play();
+    // Sjekk om musikken eksisterer før vi prøver å spille den
+    if (this.sound.sounds.find(sound => sound.key === musicKey)) {
+      this.game.globals.backgroundMusic = this.sound.add(musicKey, {
+        volume: 0.5,
+        loop: true
+      });
+      
+      this.game.globals.backgroundMusic.play();
+    } else {
+      console.log(`Background music ${musicKey} not found`);
+    }
   }
   
   createInput() {
@@ -534,14 +549,14 @@ class GameScene extends Phaser.Scene {
       this.asteroidSpawnInterval = 2000; // 2 sekunder
     }
   }
-  
+
   /* ------------------------------
    * UPDATE METODER
    * ------------------------------ */
    
   updatePlayer(delta) {
     // Ikke oppdater hvis spiller er ødelagt
-    if (!this.player.active) return;
+    if (!this.player || !this.player.active) return;
     
     // Bevegelse basert på tastaturinput
     if (this.cursors.left.isDown || this.touchInput.isMoving && this.touchInput.direction === 'left') {
@@ -623,7 +638,9 @@ class GameScene extends Phaser.Scene {
     
     // Oppdater lastShot og spill lyd
     this.lastShot = this.time.now;
-    this.sfx.shoot.play();
+    if (this.sfx && this.sfx.shoot) {
+      this.sfx.shoot.play();
+    }
   }
   
   updateEnemies(delta) {
@@ -664,10 +681,12 @@ class GameScene extends Phaser.Scene {
     
     // Oppdater hver fiende
     this.enemies.getChildren().forEach(enemy => {
-      enemy.update(delta, speedBonus);
+      if (enemy && enemy.update) {
+        enemy.update(delta, speedBonus);
+      }
       
       // Sjekk om UFO har nådd bunnen av skjermen
-      if (enemy.y + enemy.height >= this.cameras.main.height - 10 && !enemy.isLarge) {
+      if (enemy && enemy.y + enemy.height >= this.cameras.main.height - 10 && !enemy.isLarge) {
         enemy.destroy();
         this.loseLife();
         
@@ -680,7 +699,9 @@ class GameScene extends Phaser.Scene {
         this.explosions.add(explosion);
         
         // Spill treff-lyd
-        this.sfx.hit.play();
+        if (this.sfx && this.sfx.hit) {
+          this.sfx.hit.play();
+        }
       }
     });
     
@@ -703,17 +724,13 @@ class GameScene extends Phaser.Scene {
     });
     
     // Bestem boss-egenskaper basert på nivå
-    let bossWidth, bossHeight, bossHealth, bossSpeed;
+    let bossHealth, bossSpeed;
     
     if (bossLevel === 5) {
-      bossWidth = 100;
-      bossHeight = 80;
       bossHealth = 50;
       bossSpeed = 3;
       this.largeUfoCreated = true;
     } else { // level 10
-      bossWidth = 150;
-      bossHeight = 120;
       bossHealth = 200;
       bossSpeed = 4;
       this.largeUfo2Created = true;
@@ -787,7 +804,7 @@ class GameScene extends Phaser.Scene {
     }
     
     // Spill en spesiell lyd for ny rad (kun for den første raden hvis det er flere)
-    if (rowIndex === 0) {
+    if (rowIndex === 0 && this.sfx && this.sfx.powerup) {
       this.sfx.powerup.play();
     }
   }
@@ -795,20 +812,24 @@ class GameScene extends Phaser.Scene {
   updateProjectiles(delta) {
     // Oppdater kulenes posisjon
     this.bullets.getChildren().forEach(bullet => {
-      bullet.update(delta);
+      if (bullet && bullet.update) {
+        bullet.update(delta);
+      }
       
       // Fjern kuler som er utenfor skjermen
-      if (bullet.y < -bullet.height) {
+      if (bullet && bullet.y < -bullet.height) {
         bullet.destroy();
       }
     });
     
     // Oppdater lavadroppenes posisjon
     this.lavaDrops.getChildren().forEach(lava => {
-      lava.update(delta);
+      if (lava && lava.update) {
+        lava.update(delta);
+      }
       
       // Fjern lava som er utenfor skjermen
-      if (lava.y > this.cameras.main.height) {
+      if (lava && lava.y > this.cameras.main.height) {
         lava.destroy();
       }
     });
@@ -817,20 +838,24 @@ class GameScene extends Phaser.Scene {
   updatePowerUps(delta) {
     // Oppdater power-ups
     this.powerups.getChildren().forEach(powerup => {
-      powerup.update(delta);
+      if (powerup && powerup.update) {
+        powerup.update(delta);
+      }
       
       // Fjern power-ups som er utenfor skjermen
-      if (powerup.y > this.cameras.main.height) {
+      if (powerup && powerup.y > this.cameras.main.height) {
         powerup.destroy();
       }
     });
     
     // Oppdater ekstra liv
     this.extraLives.getChildren().forEach(extraLife => {
-      extraLife.update(delta);
+      if (extraLife && extraLife.update) {
+        extraLife.update(delta);
+      }
       
       // Fjern ekstra liv som er utenfor skjermen
-      if (extraLife.y > this.cameras.main.height) {
+      if (extraLife && extraLife.y > this.cameras.main.height) {
         extraLife.destroy();
       }
     });
@@ -839,12 +864,14 @@ class GameScene extends Phaser.Scene {
   updateAsteroids(delta) {
     // Oppdater asteroider
     this.asteroids.getChildren().forEach(asteroid => {
-      asteroid.update(delta);
+      if (asteroid && asteroid.update) {
+        asteroid.update(delta);
+      }
       
       // Fjern asteroider som er utenfor skjermen
-      if (asteroid.y > this.cameras.main.height || 
+      if (asteroid && (asteroid.y > this.cameras.main.height || 
           asteroid.x < -asteroid.width || 
-          asteroid.x > this.cameras.main.width + asteroid.width) {
+          asteroid.x > this.cameras.main.width + asteroid.width)) {
         asteroid.destroy();
       }
     });
@@ -891,10 +918,14 @@ class GameScene extends Phaser.Scene {
       }
       
       // Spill eksplosjonslyd
-      this.sfx.explosion.play();
+      if (this.sfx && this.sfx.explosion) {
+        this.sfx.explosion.play();
+      }
     } else {
       // Fienden tok skade men er fortsatt i live
-      this.sfx.hit.play();
+      if (this.sfx && this.sfx.hit) {
+        this.sfx.hit.play();
+      }
     }
   }
   
@@ -910,7 +941,9 @@ class GameScene extends Phaser.Scene {
     this.explosions.add(explosion);
     
     // Spill treff-lyd
-    this.sfx.hit.play();
+    if (this.sfx && this.sfx.hit) {
+      this.sfx.hit.play();
+    }
   }
   
   playerLavaCollision(player, lava) {
@@ -925,7 +958,9 @@ class GameScene extends Phaser.Scene {
     this.explosions.add(explosion);
     
     // Spill treff-lyd
-    this.sfx.hit.play();
+    if (this.sfx && this.sfx.hit) {
+      this.sfx.hit.play();
+    }
   }
   
   playerPowerUpCollision(player, powerup) {
@@ -936,7 +971,9 @@ class GameScene extends Phaser.Scene {
     this.applyPowerup();
     
     // Spill power-up-lyd
-    this.sfx.powerup.play();
+    if (this.sfx && this.sfx.powerup) {
+      this.sfx.powerup.play();
+    }
   }
   
   playerExtraLifeCollision(player, extraLife) {
@@ -951,7 +988,9 @@ class GameScene extends Phaser.Scene {
     this.game.globals.lives = this.lives;
     
     // Spill power-up-lyd
-    this.sfx.powerup.play();
+    if (this.sfx && this.sfx.powerup) {
+      this.sfx.powerup.play();
+    }
   }
   
   playerAsteroidCollision(player, asteroid) {
@@ -966,7 +1005,9 @@ class GameScene extends Phaser.Scene {
     this.explosions.add(explosion);
     
     // Spill treff-lyd
-    this.sfx.hit.play();
+    if (this.sfx && this.sfx.hit) {
+      this.sfx.hit.play();
+    }
   }
   
   bulletAsteroidCollision(bullet, asteroid) {
@@ -982,7 +1023,9 @@ class GameScene extends Phaser.Scene {
     this.explosions.add(explosion);
     
     // Spill eksplosjonslyd
-    this.sfx.explosion.play();
+    if (this.sfx && this.sfx.explosion) {
+      this.sfx.explosion.play();
+    }
   }
   
   /* ------------------------------
@@ -1015,10 +1058,12 @@ class GameScene extends Phaser.Scene {
   updateLivesDisplay() {
     // Oppdater livikoner
     for (let i = 0; i < 5; i++) {
-      if (i < this.lives) {
-        this.lifeIcons[i].setAlpha(1);
-      } else {
-        this.lifeIcons[i].setAlpha(0.3);
+      if (this.lifeIcons[i]) {
+        if (i < this.lives) {
+          this.lifeIcons[i].setAlpha(1);
+        } else {
+          this.lifeIcons[i].setAlpha(0.3);
+        }
       }
     }
     
@@ -1048,13 +1093,19 @@ class GameScene extends Phaser.Scene {
     if (this.level === 3) {
       this.laserSpeed += 2; // Raskere laserskudd
       this.autoFireEnabled = true; // Aktiver auto-skyting
-      this.player.setTexture('playerLvl3'); // Bruk level 3 spillerskip
+      if (this.textures.exists('playerLvl3')) {
+        this.player.setTexture('playerLvl3'); // Bruk level 3 spillerskip
+      }
     } else if (this.level === 5) {
       this.laserCount = 2; // Dobbelt laserskudd
-      this.player.setTexture('playerLvl6'); // Bruk level 6 spillerskip
+      if (this.textures.exists('playerLvl6')) {
+        this.player.setTexture('playerLvl6'); // Bruk level 6 spillerskip
+      }
     } else if (this.level === 9) {
       this.laserCount = 4; // Firedobbelt laserskudd
-      this.player.setTexture('playerLvl9'); // Bruk level 9 spillerskip
+      if (this.textures.exists('playerLvl9')) {
+        this.player.setTexture('playerLvl9'); // Bruk level 9 spillerskip
+      }
     }
     
     // Oppdater globale verdier
@@ -1092,7 +1143,7 @@ class GameScene extends Phaser.Scene {
         
         this.explosions.add(explosion);
         
-        if (i % 3 === 0) {
+        if (i % 3 === 0 && this.sfx && this.sfx.explosion) {
           // Spill eksplosjonslyd med ulike intervaller
           this.sfx.explosion.play();
         }
@@ -1271,7 +1322,9 @@ class GameScene extends Phaser.Scene {
     });
     
     // Spill victory-lyd hvis tilgjengelig
-    this.sfx.powerup.play();
+    if (this.sfx && this.sfx.powerup) {
+      this.sfx.powerup.play();
+    }
     
     // Håndter input for å fortsette
     const continueHandler = () => {
