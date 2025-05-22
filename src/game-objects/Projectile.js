@@ -63,6 +63,11 @@ class Projectile extends Phaser.Physics.Arcade.Sprite {
   }
   
   update(delta) {
+    // Normaliser delta til fornuftige verdier
+    if (delta > 100) {
+      delta = 16.67; // Cap at 60 FPS equivalent
+    }
+    
     // Oppdater partikkelposisjon
     if (this.particles) {
       if (this.type === 'bullet') {
@@ -75,7 +80,7 @@ class Projectile extends Phaser.Physics.Arcade.Sprite {
   
   destroy() {
     // Rydd opp ressurser ved ødeleggelse
-    if (this.particles) {
+    if (this.particles && !this.particles.destroyed) {
       this.particles.destroy();
     }
     
