@@ -43,8 +43,16 @@ class PowerUp extends Phaser.Physics.Arcade.Sprite {
   }
   
   createGlowEffect(scene) {
-    // Opprett et glow-partikkelsystem rundt power-upen
-    if (scene.textures.exists('particle')) {
+    try {
+      // Lag partikkel-tekstur hvis den ikke finnes
+      if (!scene.textures.exists('particle')) {
+        const graphics = scene.make.graphics();
+        graphics.fillStyle(0xffffff);
+        graphics.fillRect(0, 0, 4, 4);
+        graphics.generateTexture('particle', 4, 4);
+        graphics.destroy();
+      }
+
       // Bestem glow-farge basert på power-up-typen
       let color;
       
@@ -58,18 +66,17 @@ class PowerUp extends Phaser.Physics.Arcade.Sprite {
         color = 0xFFFFFF; // Hvit
       }
       
-      this.particles = scene.add.particles(0, 0, 'particle', {
-        x: this.x,
-        y: this.y,
+      this.particles = scene.add.particles(this.x, this.y, 'particle', {
         lifespan: 600,
         speed: { min: 10, max: 40 },
         scale: { start: 0.2, end: 0 },
         quantity: 1,
-        blendMode: 'ADD'
+        blendMode: 'ADD',
+        tint: color
       });
-      
-      // Sett partikkelfarge
-      this.particles.setTint(color);
+    } catch (error) {
+      console.warn("Could not create power-up glow:", error);
+      this.particles = null;
     }
   }
   
