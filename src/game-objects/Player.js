@@ -55,6 +55,11 @@ class Player extends Phaser.Physics.Arcade.Sprite {
   }
   
   update(time, delta) {
+    // Normaliser delta til fornuftige verdier
+    if (delta > 100) {
+      delta = 16.67; // Cap at 60 FPS equivalent
+    }
+    
     // Oppdaterer partikkelsystemets posisjon
     if (this.thruster) {
       this.thruster.setPosition(this.x, this.y + (this.height / 2) - 5);
@@ -78,7 +83,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocityX(-this.speed);
     
     // Setter partikkelsystemet til å emittere
-    if (this.thruster) {
+    if (this.thruster && !this.thruster.emitting) {
       this.thruster.start();
       this.thruster.setPosition(this.x + 5, this.y + (this.height / 2) - 5);
     }
@@ -89,7 +94,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocityX(this.speed);
     
     // Setter partikkelsystemet til å emittere
-    if (this.thruster) {
+    if (this.thruster && !this.thruster.emitting) {
       this.thruster.start();
       this.thruster.setPosition(this.x - 5, this.y + (this.height / 2) - 5);
     }
@@ -100,7 +105,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocityX(0);
     
     // Stopper partikkelemittering
-    if (this.thruster) {
+    if (this.thruster && this.thruster.emitting) {
       this.thruster.stop();
     }
   }
