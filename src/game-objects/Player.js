@@ -28,41 +28,29 @@ class Player extends Phaser.Physics.Arcade.Sprite {
   }
   
   createThrusterParticles(scene) {
-    // Opprett partikkeleffekt for motoren
-    if (scene.textures.exists('particle')) {
-      this.thruster = scene.add.particles(0, 0, 'particle', {
-        x: this.x,
-        y: this.y + (this.height / 2),
+    try {
+      // Lag partikkel-tekstur hvis den ikke finnes
+      if (!scene.textures.exists('particle')) {
+        const graphics = scene.make.graphics();
+        graphics.fillStyle(0xffffff);
+        graphics.fillRect(0, 0, 4, 4);
+        graphics.generateTexture('particle', 4, 4);
+        graphics.destroy();
+      }
+
+      // Opprett partikkeleffekt for motoren
+      this.thruster = scene.add.particles(this.x, this.y + (this.height / 2), 'particle', {
         lifespan: 600,
         speed: { min: 50, max: 120 },
         scale: { start: 0.2, end: 0 },
         quantity: 1,
         blendMode: 'ADD',
-        emitting: false
+        emitting: false,
+        tint: [0x00ffff, 0x1100ff] // Bruk tint-property i stedet for setTint()
       });
-      
-      // Sett farger på partiklene
-      this.thruster.setTint(0x00ffff, 0x1100ff);
-    } else {
-      // Hvis vi ikke har en partikkel-tekstur, opprett en enkel
-      const graphics = scene.make.graphics();
-      graphics.fillStyle(0xffffff);
-      graphics.fillRect(0, 0, 4, 4);
-      graphics.generateTexture('particle', 4, 4);
-      
-      this.thruster = scene.add.particles(0, 0, 'particle', {
-        x: this.x,
-        y: this.y + (this.height / 2),
-        lifespan: 600,
-        speed: { min: 50, max: 120 },
-        scale: { start: 0.2, end: 0 },
-        quantity: 1,
-        blendMode: 'ADD',
-        emitting: false
-      });
-      
-      // Sett farger på partiklene
-      this.thruster.setTint(0x00ffff, 0x1100ff);
+    } catch (error) {
+      console.warn("Could not create thruster particles:", error);
+      this.thruster = null;
     }
   }
   
@@ -91,7 +79,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     
     // Setter partikkelsystemet til å emittere
     if (this.thruster) {
-      this.thruster.emitting = true;
+      this.thruster.start();
       this.thruster.setPosition(this.x + 5, this.y + (this.height / 2) - 5);
     }
   }
@@ -102,7 +90,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     
     // Setter partikkelsystemet til å emittere
     if (this.thruster) {
-      this.thruster.emitting = true;
+      this.thruster.start();
       this.thruster.setPosition(this.x - 5, this.y + (this.height / 2) - 5);
     }
   }
@@ -113,7 +101,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
     
     // Stopper partikkelemittering
     if (this.thruster) {
-      this.thruster.emitting = false;
+      this.thruster.stop();
     }
   }
   
