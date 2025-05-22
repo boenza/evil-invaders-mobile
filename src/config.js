@@ -23,19 +23,48 @@ const config = {
   parent: 'game-container',
   backgroundColor: '#000000',
   pixelArt: false,
+  
+  // FPS and timing configuration - KRITISK FOR Å FIKSE SPEED-PROBLEMET
+  fps: {
+    target: 60,
+    forceSetTimeOut: true,
+    deltaHistory: 10,
+    panicMax: 120,
+    smoothStep: true
+  },
+  
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT
   },
+  
   physics: {
     default: 'arcade',
     arcade: {
       debug: false,
-      gravity: { y: 0 }
+      gravity: { y: 0 },
+      fps: 60 // Eksplisitt sett physics FPS
     }
   },
+  
+  // Render configuration
+  render: {
+    pixelArt: false,
+    antialias: true,
+    antialiasGL: true,
+    mipmapFilter: 'LINEAR',
+    autoResize: true
+  },
+  
+  // Audio configuration
+  audio: {
+    disableWebAudio: false,
+    context: false,
+    noAudio: false
+  },
+  
   scene: [
     BootScene,
     TitleScene,
