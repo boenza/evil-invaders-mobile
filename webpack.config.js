@@ -17,6 +17,16 @@ module.exports = {
   module: {
     rules: [
       {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-env']
+          }
+        }
+      },
+      {
         test: /\.(png|svg|jpg|jpeg|gif|webp)$/i,
         type: 'asset/resource',
         generator: {
@@ -48,7 +58,8 @@ module.exports = {
       patterns: [
         { 
           from: 'src/assets',
-          to: 'assets' 
+          to: 'assets',
+          noErrorOnMissing: true
         }
       ],
     }),
