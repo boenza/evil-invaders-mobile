@@ -43,53 +43,64 @@ class Explosion extends Phaser.GameObjects.Sprite {
   }
   
   createParticleEffect(scene) {
-    // Bestemmer partikkelfarger basert på eksplosjonstype
-    let colors;
-    
-    if (this.isPlayer) {
-      // Blå/hvit for spilleren
-      colors = [0x00ffff, 0x0066ff, 0xffffff];
-    } else if (this.isBossExplosion) {
-      // Gul/rød for boss
-      colors = [0xffff00, 0xff6600, 0xff0000];
-    } else if (this.colorMod) {
-      // Bruk angitt farge hvis spesifisert
-      // Konverter hex-string til nummer om nødvendig
-      if (typeof this.colorMod === 'string') {
-        this.colorMod = parseInt(this.colorMod.replace('#', '0x'));
+    try {
+      // Lag partikkel-tekstur hvis den ikke finnes
+      if (!scene.textures.exists('particle')) {
+        const graphics = scene.make.graphics();
+        graphics.fillStyle(0xffffff);
+        graphics.fillRect(0, 0, 4, 4);
+        graphics.generateTexture('particle', 4, 4);
+        graphics.destroy();
       }
-      colors = [this.colorMod];
-    } else {
-      // Standard eksplosjon: gul/oransje
-      colors = [0xffff00, 0xff8800, 0xff4400];
+
+      // Bestemmer partikkelfarger basert på eksplosjonstype
+      let colors;
+      
+      if (this.isPlayer) {
+        // Blå/hvit for spilleren
+        colors = [0x00ffff, 0x0066ff, 0xffffff];
+      } else if (this.isBossExplosion) {
+        // Gul/rød for boss
+        colors = [0xffff00, 0xff6600, 0xff0000];
+      } else if (this.colorMod) {
+        // Bruk angitt farge hvis spesifisert
+        // Konverter hex-string til nummer om nødvendig
+        if (typeof this.colorMod === 'string') {
+          this.colorMod = parseInt(this.colorMod.replace('#', '0x'));
+        }
+        colors = [this.colorMod];
+      } else {
+        // Standard eksplosjon: gul/oransje
+        colors = [0xffff00, 0xff8800, 0xff4400];
+      }
+      
+      // Opprett partikler
+      const particleCount = this.isBossExplosion ? 20 : 10;
+      
+      this.particles = scene.add.particles(this.x, this.y, 'particle', {
+        lifespan: 500 * this.durationMultiplier,
+        speed: { min: 50, max: 200 },
+        scale: { start: 0.4 * this.scale, end: 0 },
+        quantity: 1,
+        blendMode: 'ADD',
+        emitting: false,
+        tint: colors
+      });
+      
+      // Emitter én gang
+      this.particles.explode(particleCount, this.x, this.y);
+      
+      // Fjern partikkelsystemet etter at partiklene er ferdige
+      scene.time.delayedCall(1000 * this.durationMultiplier, () => {
+        if (this.particles && !this.particles.destroyed) {
+          this.particles.destroy();
+        }
+      });
+      
+    } catch (error) {
+      console.warn("Could not create explosion particles:", error);
+      this.particles = null;
     }
-    
-    // Opprett partikler
-    const particleCount = this.isBossExplosion ? 20 : 10;
-    
-    this.particles = scene.add.particles(0, 0, 'particle', {
-      x: this.x,
-      y: this.y,
-      lifespan: 500 * this.durationMultiplier,
-      speed: { min: 50, max: 200 },
-      scale: { start: 0.4 * this.scale, end: 0 },
-      quantity: 1,
-      blendMode: 'ADD',
-      emitting: false
-    });
-    
-    // Sett partikkelfarger
-    this.particles.setTint(colors);
-    
-    // Emitter én gang
-    this.particles.explode(particleCount, this.x, this.y);
-    
-    // Fjern partikkelsystemet etter at partiklene er ferdige
-    scene.time.delayedCall(1000 * this.durationMultiplier, () => {
-      if (this.particles && !this.particles.destroyed) {
-        this.particles.destroy();
-      }
-    });
   }
   
   update(time, delta) {
